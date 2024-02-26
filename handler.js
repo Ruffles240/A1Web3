@@ -95,3 +95,86 @@ app.get('/api/races/:raceID', async (req, res) => {
     const {data, error} = await supabase.from('races').select('raceId, year, round, circuits!inner(name, location, country), name, date, time, url, fp1_date, fp1_time, fp2_date, fp2_time, fp3_date, fp3_time, quali_date, quali_time, sprint_date, sprint_time').eq('raceId', req.params.raceID);
     data.length ? res.json(data) : res.status(404).json({message: 'Race not found'});
 });
+// Fetches detailed results for a specific driver by their reference ID
+app.get('/api/results/driver/:ref', async (req, res) => {
+    const { data: driverData, error: circuitError } = await supabase
+    .from('drivers')
+    .select('driverId')
+    .eq('driverRef', req.params.ref).single(); 
+    if(driverData==null){
+      res.status(404).json({message: 'No results found for that driver'
+    });}
+    else{
+    const { data , error} = await supabase
+      .from('results')
+      .select('resultId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId, drivers(driverRef, code, forename, surname), races(name, round, year, date), constructors(name, constructorRef, nationality)')
+      .eq('driverId', driverData.driverId);
+      data.length ? res.json(data): res.status(404).json({message: 'No results found for that driver'});}
+    });
+ 
+ // Retrieves a driver's results filtered by a specified season range
+ app.get('/api/results/driver/:ref/seasons/:start/:end', async (req, res) => {
+    if(parseInt(req.params.start) > parseInt(req.params.end) || isNaN(req.params.end)||isNaN(req.params.start)){
+       return res.status(400).json({ message: "Please enter a valid start and end time, both must be numbers and start must be earlier than end" });
+    }
+    const{data:raceData, error:searchError} =  await supabase
+       .from('races')
+       .select('raceId')
+       .gte('year', req.params.start)
+       .lte('year', req.params.end);
+   if(raceData==null){
+      res.status(404).json({message: 'No races found for that circuit'});
+      
+    }
+    const raceIds = raceData.map(race => race.raceId);
+    const { data: driverData, error: circuitError } = await supabase
+    .from('drivers')
+    .select('driverId')
+    .eq('driverRef', req.params.ref).single(); 
+    if(driverData==null){
+      res.status(404).json({message: 'No driver found'});
+      
+    }
+    const { data , error} = await supabase
+      .from('results')
+      .select('resultId, number, grid, position, positionText, positionOrder, points, laps, time, milliseconds, fastestLap, rank, fastestLapTime, fastestLapSpeed, statusId, drivers(driverRef, code, forename, surname), races(name, round, year, date), constructors(name, constructorRef, nationality)')
+      .eq('driverId', driverData.driverId).in('raceId', raceIds);
+      data.length ? res.json(data): res.status(404).json({message: 'No results found between those years'});
+    });
+ 
+ // Returns qualifying results for a specific race by race ID
+ app.get('/api/qualifying/:raceId', async (req, res) => {
+    if(isNaN(req.params.raceId)){
+       res.status(404).json({message: 'invalid input'})
+       
+     }
+    const {data, error} = await supabase
+    .from('qualifying')
+    .select('qualifyId, drivers(driverRef, code, forename, surname), races(name, round, year, date), constructors(name, constructorRef, nationality), number, position, q1, q2, q3').eq('raceId', req.params.raceId).order('position', {ascending:true});
+    data.length ? res.json(data): res.status(404).json({message: 'No results found for that race'});
+   }); 
+ 
+ // Retrieves driver standings for a specific race by race ID
+ app.get('/api/standings/:raceId/drivers', async (req, res) => {
+     if(isNaN(req.params.raceId)){
+       res.status(404).json({message: 'invalid input'})
+       
+     }
+    const {data, error} = await supabase
+    .from('driverStandings')
+    .select('driverStandingsId, drivers(driverRef, code, forename, surname), races(name, round, year, date), points, position, positionText, wins').eq('raceId', req.params.raceId).order('position', {ascending:true});
+    data.length ? res.json(data): res.status(404).json({message: 'No results found for that race'});
+   }); 
+ 
+ // Provides constructor standings for a specific race by race ID
+ app.get('/api/standings/:raceId/constructors', async (req, res) => {
+     if(isNaN(req.params.raceId)){
+       res.status(404).json({message: 'invalid input'})
+       
+     }
+    const {data, error} = await supabase
+    .from('constructorStandings')
+    .select('constructorStandingsId, constructors(name, constructorRef, nationality), races(name, round, year, date), points, position, positionText, wins').eq('raceId', req.params.raceId).order('position', {ascending:true});
+    data.length ? res.json(data): res.status(404).json({message: 'No results found for that race'});
+ }); 
+ 
