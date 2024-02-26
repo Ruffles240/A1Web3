@@ -14,6 +14,10 @@ app.listen(8080, () => {
     console.log('http://localhost:8080/f1/status');
 });
 
+app.get('*', async (req, res) => {
+     res.status(404).json({message: 'Please use the format outlined in the read me'});
+});
+
 // Fetches and returns all seasons; returns an error if none are found.
 app.get('/api/seasons', async (req, res) => {
     const {data, error} = await supabase.from('seasons').select();
